@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="卒パチ日記">
+<title>卒パチ日記</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #fff7ed 0%, #fdf4ff 50%, #eff6ff 100%);
+    font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    color: #1e293b;
+  }
+  #app { max-width: 420px; margin: 0 auto; padding: 24px 20px 48px; position: relative; }
+  .header { text-align: center; margin-bottom: 20px; padding-top: 8px; }
+  .title-emoji { font-size: 40px; margin-bottom: 4px; }
+  .title { font-size: 26px; font-weight: 800; color: #7c3aed; letter-spacing: 0.05em; }
+  .subtitle { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+
+  .stats-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .stat-box {
+    flex: 1; border-radius: 14px; padding: 14px 6px;
+    text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  .stat-box.purple { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+  .stat-box.orange { background: linear-gradient(135deg, #f97316, #fb923c); }
+  .stat-box.blue   { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
+  .stat-num { font-size: 20px; font-weight: 800; color: #fff; }
+  .stat-label { font-size: 10px; color: rgba(255,255,255,0.85); margin-top: 4px; }
+
+  .loss-banner {
+    background: #fff; border: 1px solid #fecaca; border-radius: 14px;
+    padding: 12px 16px; margin-bottom: 20px; text-align: center;
+    box-shadow: 0 2px 8px rgba(239,68,68,0.08);
+  }
+  .loss-label { font-size: 11px; color: #94a3b8; }
+  .loss-num { font-size: 18px; font-weight: 800; color: #ef4444; margin-top: 2px; }
+  .loss-sub { font-size: 10px; color: #cbd5e1; margin-top: 2px; }
+
+  .stamp-area { display: flex; justify-content: center; margin-bottom: 10px; }
+  #stamp-btn {
+    background: linear-gradient(135deg, #f97316, #ec4899);
+    border: none; border-radius: 20px; padding: 18px 32px;
+    cursor: pointer; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 6px 24px rgba(236,72,153,0.35);
+    font-size: 16px; font-weight: 700; color: #fff;
+  }
+  #stamp-btn:active { transform: scale(0.96); }
+  .stamped-badge {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    border-radius: 20px; padding: 18px 32px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 6px 24px rgba(52,211,153,0.3);
+    font-size: 16px; font-weight: 700; color: #fff;
+  }
+  .sub-btns { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .sub-btn {
+    background: none; border: 2px solid #e2e8f0; border-radius: 12px;
+    padding: 8px 14px; font-size: 12px; cursor: pointer; color: #64748b; font-weight: 600;
+  }
+  .sub-btn.sos {
+    border-color: #fda4af; color: #e11d48; background: #fff1f2;
+  }
+  .sub-btn.went {
+    border-color: #fcd34d; color: #b45309; background: #fffbeb;
+  }
+  .undo-link {
+    background: none; border: none; color: #cbd5e1;
+    font-size: 11px; cursor: pointer; text-decoration: underline;
+  }
+
+  .message-box {
+    background: #fff; border-radius: 16px; padding: 16px 18px;
+    margin-bottom: 20px; text-align: center;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.1);
+    border: 1px solid #ede9fe;
+  }
+  .message-text { font-size: 15px; color: #374151; line-height: 1.8; }
+  .milestone-text { margin-top: 10px; font-size: 13px; color: #f97316; font-weight: 700; }
+
+  .cal-section { margin-bottom: 16px; }
+  .cal-title { font-size: 13px; color: #94a3b8; margin-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cell {
+    aspect-ratio: 1; border-radius: 8px; display: flex;
+    flex-direction: column; gap: 1px;
+    align-items: center; justify-content: center;
+    font-size: 10px; color: #065f46; font-weight: 800;
+    border: 2px solid transparent;
+  }
+  .cell.empty { background: #f1f5f9; color: #94a3b8; }
+  .cell.today { background: #fef9c3; border-color: #facc15; color: #92400e; }
+  .cell.stamped {
+    background: linear-gradient(135deg, #34d399, #6ee7b7);
+    box-shadow: 0 2px 6px rgba(52,211,153,0.4);
+  }
+  .cell.went {
+    background: linear-gradient(135deg, #f87171, #fca5a5);
+    color: #7f1d1d;
+  }
+  .legend { margin-top: 8px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+
+  .next-milestone { text-align: center; font-size: 14px; color: #64748b; padding: 12px 0; }
+  .next-milestone b { color: #f97316; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45); align-items: center; justify-content: center; z-index: 300;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 20px; padding: 28px 24px;
+    max-width: 340px; width: 90%; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    max-height: 80vh; overflow-y: auto;
+  }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+  .modal-sub { font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.7; }
+  .modal-btns { display: flex; gap: 12px; }
+  .modal-cancel {
+    flex: 1; padding: 12px 0; border-radius: 12px; border: 2px solid #e2e8f0;
+    background: #fff; font-size: 15px; cursor: pointer; color: #64748b;
+  }
+  .modal-ok {
+    flex: 1; padding: 12px 0; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, #f97316, #fb923c);
+    font-size: 15px; cursor: pointer; color: #fff; font-weight: 700;
+  }
+  .modal input {
+    width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px;
+    font-size: 16px; margin-bottom: 16px; text-align: center;
+  }
+  .sos-text { font-size: 14px; color: #374151; line-height: 2; text-align: left; margin-bottom: 20px; }
+  .sos-highlight {
+    background: #fef2f2; border-radius: 12px; padding: 14px;
+    font-size: 14px; color: #b91c1c; font-weight: 700; margin-bottom: 16px; line-height: 1.7;
+  }
+
+  /* Celebration */
+  .celeb {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    align-items: center; justify-content: center; z-index: 200; pointer-events: none;
+  }
+  .celeb.show { display: flex; }
+  .celeb-emoji { font-size: 100px; animation: pop 0.4s ease; }
+  @keyframes pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="celeb" id="celeb"><div class="celeb-emoji">🎉</div></div>
+
+  <!-- Reset modal -->
+  <div class="modal-overlay" id="modal-reset">
+    <div class="modal">
+      <div class="modal-title">今日のスタンプを取り消す？</div>
+      <div class="modal-sub">間違えてタップした場合はOKを押してください</div>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeModal('modal-reset')">やめる</button>
+        <button class="modal-ok" onclick="doReset()">取り消す</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Past loss modal -->
+  <div class="modal-overlay" id="modal-past">
+    <div class="modal">
+      <div class="modal-title">過去の累計損失を登録</div>
+      <div class="modal-sub">マネーフォワード集計(2021〜2026前半)の累計¥377,300が初期登録されています。変更も可能です。</div>
+      <input type="number" id="past-input" placeholder="例: 150000" inputmode="numeric">
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeModal('modal-past')">やめる</button>
+        <button class="modal-ok" onclick="doPast()">登録する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Went modal -->
+  <div class="modal-overlay" id="modal-went">
+    <div class="modal">
+      <div class="modal-title">正直に記録する</div>
+      <div class="modal-sub">隠さないことが、抜け出す第一歩。<br>勝っても負けても、行ったら必ず記録。</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button type="button" id="result-lose" onclick="setResult('lose')" style="flex:1;padding:10px;border-radius:10px;border:2px solid #ef4444;background:#fef2f2;color:#b91c1c;font-weight:700;cursor:pointer">負けた</button>
+        <button type="button" id="result-win" onclick="setResult('win')" style="flex:1;padding:10px;border-radius:10px;border:2px solid #e2e8f0;background:#fff;color:#94a3b8;font-weight:700;cursor:pointer">勝った</button>
+      </div>
+      <input type="number" id="loss-input" placeholder="金額 例: 7000" inputmode="numeric">
+      <input type="number" id="hours-input" placeholder="使った時間 例: 2（時間）" inputmode="numeric" step="0.5">
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeModal('modal-went')">やめる</button>
+        <button class="modal-ok" onclick="doWent()">記録する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOS modal -->
+  <div class="modal-overlay" id="modal-sos">
+    <div class="modal">
+      <div class="modal-title">🚨 行きたくなったら</div>
+      <div class="sos-highlight" id="sos-loss"></div>
+      <div class="sos-text" id="sos-text"></div>
+      <div style="margin-bottom:12px">
+        <button onclick="showRandomSos()" style="width:100%;padding:11px;border-radius:12px;border:2px solid #c4b5fd;background:#f5f3ff;color:#7c3aed;font-size:14px;font-weight:700;cursor:pointer">🔄 別の言葉を見る</button>
+      </div>
+      <div class="modal-btns">
+        <button class="modal-ok" style="flex:1" onclick="overcameSOS()">我慢できた！</button>
+      </div>
+      <button class="undo-link" style="margin-top:12px" onclick="closeModal('modal-sos')">閉じる</button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="title-emoji">🌸</div>
+    <div class="title">卒パチ日記</div>
+    <div class="subtitle">行かなかった日を積み上げよう</div>
+  </div>
+
+  <!-- Declaration -->
+  <div style="background:linear-gradient(135deg,#7c3aed,#a78bfa);border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;box-shadow:0 4px 12px rgba(124,58,237,0.25)">
+    <div style="font-size:11px;color:rgba(255,255,255,0.75);margin-bottom:4px">わたしの宣言</div>
+    <div style="font-size:14px;color:#fff;font-weight:700;line-height:1.7">パチンコは完全にやめる。<br>「今日だけ」は罠。大切な人との未来のために。</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-box purple">
+      <div class="stat-num" id="total">0</div>
+      <div class="stat-label">⭐ 通算達成日</div>
+    </div>
+    <div class="stat-box orange">
+      <div class="stat-num" id="streak">0</div>
+      <div class="stat-label">🔥 連続日数</div>
+    </div>
+    <div class="stat-box blue">
+      <div class="stat-num" id="saving">¥0</div>
+      <div class="stat-label">💰 節約推定</div>
+    </div>
+  </div>
+
+  <!-- Loss banner -->
+  <div class="loss-banner" id="loss-banner" style="display:none">
+    <div class="loss-label" id="loss-label">6年間の累計（お金 / 時間 / 回数）</div>
+    <div class="loss-num" id="loss-total">¥0</div>
+    <div class="loss-sub" id="loss-opp" style="font-size:11px;color:#f87171;font-weight:600;margin-top:4px;line-height:1.6"></div>
+  </div>
+
+  <!-- Stamp -->
+  <div class="stamp-area" id="stamp-area"></div>
+
+  <!-- Sub buttons -->
+  <div class="sub-btns">
+    <button class="sub-btn sos" onclick="openSOS()">🚨 行きたくなった</button>
+    <button class="sub-btn went" onclick="openModal('modal-went')">😔 行ってしまった</button>
+    <button class="sub-btn" id="yesterday-btn" onclick="handleYesterday()">📅 昨日分を追加</button>
+  </div>
+  <div style="text-align:center;margin-bottom:16px" id="undo-area">
+    <button class="undo-link" onclick="openModal('modal-reset')">今日のスタンプを間違えた場合</button>
+  </div>
+
+  <!-- Message -->
+  <div class="message-box" id="msg-box" style="display:none">
+    <div class="message-text" id="msg-text"></div>
+    <div class="milestone-text" id="milestone-text" style="display:none"></div>
+  </div>
+
+  <!-- Calendar -->
+  <div class="cal-section">
+    <div class="cal-title">📅 直近28日</div>
+    <div class="grid" id="grid"></div>
+    <div class="legend">
+      <span class="dot" style="background:#34d399"></span> 達成
+      <span class="dot" style="background:#f87171;margin-left:10px"></span> 行った日
+      <span class="dot" style="background:#fef08a;margin-left:10px"></span> 今日
+    </div>
+  </div>
+
+  <div class="next-milestone" id="next-milestone"></div>
+
+  <!-- Analytics -->
+  <div style="background:#fff;border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 4px 16px rgba(124,58,237,0.08);border:1px solid #ede9fe">
+    <div style="font-size:13px;color:#7c3aed;font-weight:700;margin-bottom:12px">📊 月別の達成日数</div>
+    <div id="monthly-chart" style="display:flex;align-items:flex-end;gap:6px;height:110px"></div>
+    <div id="monthly-labels" style="display:flex;gap:6px;margin-top:4px"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <div style="flex:1;background:#f5f3ff;border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:#7c3aed" id="sos-wins-stat">0</div>
+        <div style="font-size:10px;color:#94a3b8">🚨 衝動に勝った回数</div>
+      </div>
+      <div style="flex:1;background:#fff7ed;border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:#f97316" id="best-streak-stat">0</div>
+        <div style="font-size:10px;color:#94a3b8">🏅 最長連続記録</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reward Goal -->
+  <div style="background:#fff;border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 4px 16px rgba(249,115,22,0.08);border:1px solid #fed7aa" id="reward-card">
+    <div style="font-size:13px;color:#f97316;font-weight:700;margin-bottom:10px">🎁 自分へのご褒美</div>
+    <div id="reward-content"></div>
+  </div>
+
+  <!-- Reward modal -->
+  <div class="modal-overlay" id="modal-reward">
+    <div class="modal">
+      <div class="modal-title">ご褒美を設定</div>
+      <div class="modal-sub">達成したら浮いたお金で何を手に入れる?<br>目標があると続けやすくなります。</div>
+      <input type="text" id="reward-name" placeholder="例: ふたりで温泉旅行">
+      <input type="number" id="reward-days" placeholder="通算目標日数 例: 30" inputmode="numeric">
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeModal('modal-reward')">やめる</button>
+        <button class="modal-ok" onclick="doReward()">設定する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data transfer modal -->
+  <div class="modal-overlay" id="modal-transfer">
+    <div class="modal">
+      <div class="modal-title">データ引き継ぎ</div>
+      <div class="modal-sub">スマホ⇔PC間で記録を移せます。<br>コードをコピーして、別端末で貼り付け→読み込み。</div>
+      <textarea id="transfer-code" style="width:100%;height:90px;padding:10px;border:2px solid #e2e8f0;border-radius:12px;font-size:11px;margin-bottom:12px;font-family:monospace"></textarea>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="copyTransfer()">📋 コピー</button>
+        <button class="modal-ok" onclick="importTransfer()">読み込む</button>
+      </div>
+      <button class="undo-link" style="margin-top:12px" onclick="closeModal('modal-transfer')">閉じる</button>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:11px;color:#cbd5e1;line-height:1.8;margin-top:8px">
+    つまずいても、戻ってくればいい。<br>通算日数はずっとあなたの味方。
+  </div>
+  <div style="text-align:center;margin-top:12px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+    <button class="undo-link" onclick="openPast()">⚙️ 過去の累計損失</button>
+    <button class="undo-link" onclick="openTransfer()">🔄 データ引き継ぎ</button>
+  </div>
+</div>
+
+<script>
+const ENCOURAGEMENTS = [
+  "今日も行かなかった。それだけで十分すごい！🌟",
+  "一日一日の積み重ねが、あなたを変えていく✨",
+  "その時間、未来のために使えた！💪",
+  "衝動に勝った。今日のあなたは昨日より強い🔥",
+  "大切な人のことを思い出して。その選択は正しい💖",
+  "お金も時間も、本当に大切なものに使える🎯",
+  "続けること自体が、すでに勝利だ！🏆",
+  "今日のスタンプが、明日の自信になる⭐",
+  "イライラした日もある。それでも行かなかった、偉い👏",
+  "あなたの変わろうとする気持ちを、ずっと応援してる😊",
+  "「やめる」ではなく「今日は行かない」。それを毎日続けるだけ🌱",
+  "勝率55%でも負ける。それがすべての答え📊",
+  "行かなかった日は、誰にも奪われない財産になる💎",
+  "退屈を埋めるのは台じゃない。あなたの選んだ何かだ🎨",
+  "ウズウズは波。ピークは10分で必ず引いていく🌊",
+  "唯一の必勝法は、打たないこと。マーク・トウェインもそう言った🎰",
+  "昨日の自分に勝てなくていい。今日行かなければそれで勝ち🌅",
+  "三百回分の後悔を、もう増やさなくていい🍀",
+  "静かな夜を取り戻した。それは負けじゃない、勝ちだ🌙",
+  "あの音がなくても、ちゃんと生きていける。証明中だ🎧",
+  "未来の自分が、今日のあなたに感謝している😌",
+  "「物足りない」を越えた先に、本物の満足がある🏔️",
+  "強さとは、行かない選択を静かに続けられること🕊️",
+];
+const MILESTONES = [
+  { days: 3,   message: "通算3日達成！習慣が変わり始めてる🌱" },
+  { days: 7,   message: "通算7日！本当にすごい、自分を褒めて🎉" },
+  { days: 14,  message: "通算14日達成！あなたは変われる人だ✨" },
+  { days: 30,  message: "通算30日！未来が変わってきた🚀" },
+  { days: 60,  message: "通算60日！新しい自分が当たり前になってきた🌈" },
+  { days: 100, message: "通算100日！これは本物の変化だ、誇っていい🏅" },
+];
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function yesterdayStr() {
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0,10);
+}
+function getStreak(dates) {
+  if (!dates.length) return 0;
+  const sorted = [...dates].sort((a,b) => a>b?-1:1);
+  let streak = 0, cursor = todayStr();
+  // streak counts from today or yesterday
+  if (!sorted.includes(cursor)) {
+    const y = yesterdayStr();
+    if (!sorted.includes(y)) return 0;
+    cursor = y;
+  }
+  for (const d of sorted) {
+    if (d === cursor) {
+      streak++;
+      const prev = new Date(cursor);
+      prev.setDate(prev.getDate() - 1);
+      cursor = prev.toISOString().slice(0,10);
+    }
+  }
+  return streak;
+}
+
+function wentAmount(v) { return typeof v === 'number' ? v : (v.amount || 0); }
+function wentHours(v) { return typeof v === 'number' ? 0 : (v.hours || 0); }
+function totalLoss() { return (data.pastLoss || 0) + Object.values(data.went).reduce((a,b) => a + wentAmount(b), 0); }
+function totalHours() { return (data.pastHours || 0) + Object.values(data.went).reduce((a,b) => a + wentHours(b), 0); }
+function totalVisits() { return (data.pastVisits || 0) + Object.keys(data.went).length; }
+
+// 機会損失の具体例を生成
+function opportunityText(loss, hours) {
+  const items = [];
+  if (loss >= 300000) items.push('ふたりの海外旅行(¥300,000)');
+  else if (loss >= 100000) items.push('ふたりの国内旅行2回(¥100,000)');
+  else if (loss >= 50000) items.push('ふたりの一泊旅行(¥50,000)');
+  else if (loss >= 20000) items.push('日帰り温泉旅行(¥20,000)');
+  else if (loss >= 10000) items.push('ふたりで少し贅沢なディナー(¥10,000)');
+  else if (loss >= 5000) items.push('いい感じのディナーデート1回(¥5,000)');
+  else if (loss >= 3000) items.push('映画2本ぶん(¥3,000)');
+  else if (loss >= 1500) items.push('読みたかった本1冊(¥1,500)');
+  const parts = [];
+  if (items.length) parts.push(items[0] + 'が消えた');
+  if (hours >= 600) parts.push('丸' + Math.floor(hours/24) + '日ぶんの人生も');
+  else if (hours >= 2) parts.push('映画' + Math.floor(hours/2) + '本ぶんの時間も');
+  else if (hours >= 1) parts.push(Math.floor(hours) + '時間の自由も');
+  return parts.join('。');
+}
+
+function loadData() {
+  try {
+    const d = JSON.parse(localStorage.getItem('sotopachi_data') || '{"stamps":[],"went":{},"sosWins":0,"pastLoss":0}');
+    if (d.pastLoss === undefined) d.pastLoss = 0;
+    return d;
+  } catch { return {stamps:[],went:{},sosWins:0,pastLoss:0}; }
+}
+function saveData() { localStorage.setItem('sotopachi_data', JSON.stringify(data)); }
+
+// migrate old format
+let data = loadData();
+// マネーフォワード集計結果(2021-2026前半): 累計収支 -377,300円 / 305回 / 推定610時間
+if (!data.pastApplied) {
+  if (!data.pastLoss || data.pastLoss === 0) data.pastLoss = 377300;
+  data.pastVisits = 305;
+  data.pastHours = 610;
+  data.pastApplied = true;
+  saveData();
+}
+try {
+  const old = JSON.parse(localStorage.getItem('sotopachi_stamps') || 'null');
+  if (old && Array.isArray(old) && data.stamps.length === 0) {
+    data.stamps = old;
+    saveData();
+    localStorage.removeItem('sotopachi_stamps');
+  }
+} catch {}
+
+let currentMsg = '';
+
+function render() {
+  const today = todayStr();
+  const stamped = data.stamps.includes(today);
+  const wentToday = data.went[today] !== undefined;
+  const streak = getStreak(data.stamps);
+  const total = data.stamps.length;
+  const lossTotal = totalLoss();
+  const lossHours = totalHours();
+
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('total').textContent = total;
+  document.getElementById('saving').textContent = '¥' + (total * 3000).toLocaleString();
+
+  // Loss banner
+  const lb = document.getElementById('loss-banner');
+  if (Object.keys(data.went).length > 0 || (data.pastLoss || 0) > 0) {
+    lb.style.display = 'block';
+    let lossText = '¥' + lossTotal.toLocaleString();
+    if (lossHours > 0) lossText += ' / ' + Math.round(lossHours) + '時間';
+    const visits = totalVisits();
+    if (visits > 0) lossText += ' / ' + visits + '回';
+    document.getElementById('loss-total').textContent = lossText;
+    if (lossTotal < 0) {
+      document.getElementById('loss-opp').textContent = 'プラスは一時的。続ければ必ず逆転される。それが構造。';
+    } else {
+      const opp = opportunityText(lossTotal, lossHours);
+      document.getElementById('loss-opp').textContent = opp || 'このお金と時間で何ができたか、想像してみて';
+    }
+  } else {
+    lb.style.display = 'none';
+  }
+
+  // Stamp button
+  const stampArea = document.getElementById('stamp-area');
+  if (stamped) {
+    stampArea.innerHTML = '<div class="stamped-badge"><span style="font-size:28px">🌟</span><span>今日のスタンプ済み！</span></div>';
+    document.getElementById('undo-area').style.display = 'block';
+    const msgBox = document.getElementById('msg-box');
+    msgBox.style.display = 'block';
+    document.getElementById('msg-text').textContent = currentMsg || ENCOURAGEMENTS[total % ENCOURAGEMENTS.length];
+  } else if (wentToday) {
+    stampArea.innerHTML = '<div class="stamped-badge" style="background:linear-gradient(135deg,#64748b,#94a3b8)"><span style="font-size:28px">📝</span><span>今日は正直に記録した</span></div>';
+    document.getElementById('undo-area').style.display = 'none';
+    const msgBox = document.getElementById('msg-box');
+    msgBox.style.display = 'block';
+    const todayWent = data.went[today];
+    const todayAmount = wentAmount(todayWent);
+    if (todayAmount < 0) {
+      const lt = totalLoss();
+      document.getElementById('msg-text').textContent = lt > 0
+        ? '今日の勝ちは、次の負けの呼び水。トータルではまだ¥' + lt.toLocaleString() + '負けている。行ったこと自体が後退。'
+        : '今日の勝ちは、次の負けの呼び水。勝った記憶が一番危険。行ったこと自体が後退。';
+    } else {
+      document.getElementById('msg-text').textContent = '記録した勇気が大事。明日からまた積み上げよう。通算日数は消えない。';
+    }
+  } else {
+    stampArea.innerHTML = '<button id="stamp-btn" onclick="handleStamp()"><span style="font-size:28px">✅</span><span>今日も行かなかった！</span></button>';
+    document.getElementById('undo-area').style.display = 'none';
+    document.getElementById('msg-box').style.display = 'none';
+  }
+
+  // Yesterday button
+  const ybtn = document.getElementById('yesterday-btn');
+  const y = yesterdayStr();
+  ybtn.style.display = (data.stamps.includes(y) || data.went[y] !== undefined) ? 'none' : 'inline-block';
+
+  // Calendar (28 days = 4 weeks, 7 cols)
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let i = 27; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0,10);
+    const isToday = ds === today;
+    const isStamped = data.stamps.includes(ds);
+    const isWent = data.went[ds] !== undefined;
+    const label = (d.getMonth()+1) + '/' + d.getDate();
+    const cell = document.createElement('div');
+    cell.className = 'cell ' + (isWent ? 'went' : isStamped ? 'stamped' : isToday ? 'today' : 'empty');
+    cell.innerHTML = isWent
+      ? '<span style="font-size:8px;line-height:1;opacity:0.8">' + label + '</span><span style="font-size:10px">×</span>'
+      : isStamped
+      ? '<span style="font-size:8px;line-height:1;opacity:0.8">' + label + '</span><span style="font-size:10px">✓</span>'
+      : '<span style="font-size:8px;line-height:1">' + label + '</span>';
+    grid.appendChild(cell);
+  }
+
+  // Next milestone (based on total now, restart-friendly)
+  const next = MILESTONES.find(m => m.days > total);
+  const nm = document.getElementById('next-milestone');
+  nm.innerHTML = next
+    ? '次の目標(通算' + next.days + '日)まで <b>' + (next.days - total) + '日</b> ✨'
+    : '🎊 素晴らしい記録を継続中！';
+
+  renderAnalytics();
+  renderReward();
+}
+
+function handleStamp() {
+  const today = todayStr();
+  if (data.stamps.includes(today)) return;
+  if (data.went[today] !== undefined) return;
+  data.stamps.push(today);
+  saveData();
+  currentMsg = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+  const total = data.stamps.length;
+  const hit = MILESTONES.slice().reverse().find(m => total === m.days);
+  const milestoneEl = document.getElementById('milestone-text');
+  if (hit) { milestoneEl.textContent = '🏆 ' + hit.message; milestoneEl.style.display='block'; }
+  else { milestoneEl.style.display='none'; }
+  showCeleb();
+  render();
+}
+
+function handleYesterday() {
+  const y = yesterdayStr();
+  if (data.stamps.includes(y)) return;
+  data.stamps.push(y);
+  saveData();
+  currentMsg = '昨日も行かなかった！後から記録してくれてありがとう😊';
+  document.getElementById('msg-box').style.display = 'block';
+  document.getElementById('msg-text').textContent = currentMsg;
+  document.getElementById('milestone-text').style.display = 'none';
+  render();
+}
+
+let wentResult = 'lose';
+function setResult(r) {
+  wentResult = r;
+  const lose = document.getElementById('result-lose');
+  const win = document.getElementById('result-win');
+  if (r === 'lose') {
+    lose.style.borderColor = '#ef4444'; lose.style.background = '#fef2f2'; lose.style.color = '#b91c1c';
+    win.style.borderColor = '#e2e8f0'; win.style.background = '#fff'; win.style.color = '#94a3b8';
+  } else {
+    win.style.borderColor = '#ef4444'; win.style.background = '#fef2f2'; win.style.color = '#b91c1c';
+    lose.style.borderColor = '#e2e8f0'; lose.style.background = '#fff'; lose.style.color = '#94a3b8';
+  }
+}
+function doWent() {
+  const input = document.getElementById('loss-input');
+  const hoursInput = document.getElementById('hours-input');
+  let amount = parseInt(input.value, 10);
+  const hours = parseFloat(hoursInput.value) || 0;
+  if (isNaN(amount) || amount < 0) {
+    alert('金額を入力してください');
+    return;
+  }
+  if (wentResult === 'win') amount = -amount;
+  const today = todayStr();
+  data.went[today] = { amount: amount, hours: hours };
+  // remove today's stamp if exists
+  data.stamps = data.stamps.filter(d => d !== today);
+  saveData();
+  input.value = '';
+  hoursInput.value = '';
+  closeModal('modal-went');
+  render();
+}
+
+function openSOS() {
+  const lossTotal = totalLoss();
+  const lossHours = totalHours();
+  const el = document.getElementById('sos-loss');
+  if (lossTotal > 0) {
+    el.textContent = 'これまでの損失: ¥' + lossTotal.toLocaleString() + '。今行けば、またここに積み上がる。';
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+  openModal('modal-sos');
+}
+
+function overcameSOS() {
+  data.sosWins = (data.sosWins || 0) + 1;
+  saveData();
+  closeModal('modal-sos');
+  currentMsg = '衝動に勝った！これで' + data.sosWins + '回目の勝利。本当に強くなってる🔥';
+  document.getElementById('msg-box').style.display = 'block';
+  document.getElementById('msg-text').textContent = currentMsg;
+  document.getElementById('milestone-text').style.display = 'none';
+  showCeleb();
+}
+
+function openPast() {
+  document.getElementById('past-input').value = data.pastLoss || '';
+  openModal('modal-past');
+}
+function doPast() {
+  const v = parseInt(document.getElementById('past-input').value, 10);
+  if (isNaN(v) || v < 0) { alert('金額を入力してください'); return; }
+  data.pastLoss = v;
+  saveData();
+  closeModal('modal-past');
+  render();
+}
+function doReset() {
+  const today = todayStr();
+  data.stamps = data.stamps.filter(d => d !== today);
+  saveData();
+  currentMsg = '';
+  closeModal('modal-reset');
+  render();
+}
+
+// ===== Analytics =====
+function bestStreak(dates) {
+  if (!dates.length) return 0;
+  const set = new Set(dates);
+  let best = 0;
+  for (const d of set) {
+    const prev = new Date(d); prev.setDate(prev.getDate()-1);
+    if (set.has(prev.toISOString().slice(0,10))) continue; // not a streak start
+    let len = 0; let cur = d;
+    while (set.has(cur)) {
+      len++;
+      const n = new Date(cur); n.setDate(n.getDate()+1);
+      cur = n.toISOString().slice(0,10);
+    }
+    if (len > best) best = len;
+  }
+  return best;
+}
+function renderAnalytics() {
+  // monthly chart: last 6 months
+  const chart = document.getElementById('monthly-chart');
+  const labels = document.getElementById('monthly-labels');
+  chart.innerHTML = ''; labels.innerHTML = '';
+  const counts = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    const ym = d.toISOString().slice(0,7);
+    const count = data.stamps.filter(s => s.startsWith(ym)).length;
+    counts.push({ label: (d.getMonth()+1) + '月', count });
+  }
+  const max = Math.max(...counts.map(x => x.count), 1);
+  for (const x of counts) {
+    const bar = document.createElement('div');
+    const h = Math.max(6, Math.round(x.count / max * 100));
+    bar.style.cssText = 'flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%';
+    bar.innerHTML = '<div style="font-size:10px;color:#7c3aed;font-weight:700;margin-bottom:2px">' + (x.count || '') + '</div>' +
+      '<div style="width:100%;height:' + h + '%;background:linear-gradient(180deg,#a78bfa,#7c3aed);border-radius:6px 6px 0 0;min-height:4px;' + (x.count===0?'opacity:0.15':'') + '"></div>';
+    chart.appendChild(bar);
+    const lb = document.createElement('div');
+    lb.style.cssText = 'flex:1;text-align:center;font-size:10px;color:#94a3b8';
+    lb.textContent = x.label;
+    labels.appendChild(lb);
+  }
+  document.getElementById('sos-wins-stat').textContent = data.sosWins || 0;
+  document.getElementById('best-streak-stat').textContent = bestStreak(data.stamps) + '日';
+}
+
+// ===== Reward =====
+function renderReward() {
+  const el = document.getElementById('reward-content');
+  const total = data.stamps.length;
+  if (!data.reward) {
+    el.innerHTML = '<button onclick="openModal(\'modal-reward\')" style="width:100%;padding:12px;border-radius:12px;border:2px dashed #fdba74;background:#fff7ed;color:#f97316;font-size:13px;font-weight:700;cursor:pointer">+ ご褒美を設定する</button>';
+    return;
+  }
+  const r = data.reward;
+  const pct = Math.min(100, Math.round(total / r.days * 100));
+  const remain = Math.max(0, r.days - total);
+  const savedYen = total * 3000;
+  el.innerHTML =
+    '<div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:8px">' + r.name + '</div>' +
+    '<div style="background:#fef3e2;border-radius:99px;height:14px;overflow:hidden;margin-bottom:6px">' +
+    '<div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#fb923c,#f97316);border-radius:99px;transition:width 0.5s"></div></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8">' +
+    '<span>' + total + ' / ' + r.days + '日 (' + pct + '%)</span>' +
+    '<span>' + (remain === 0 ? '🎉 達成!受け取ろう!' : 'あと' + remain + '日') + '</span></div>' +
+    '<div style="font-size:11px;color:#f97316;margin-top:6px">節約推定¥' + savedYen.toLocaleString() + 'が原資に💰</div>' +
+    '<button class="undo-link" style="margin-top:8px" onclick="openModal(\'modal-reward\')">変更する</button>';
+}
+function doReward() {
+  const name = document.getElementById('reward-name').value.trim();
+  const days = parseInt(document.getElementById('reward-days').value, 10);
+  if (!name || isNaN(days) || days < 1) { alert('ご褒美と目標日数を入力してください'); return; }
+  data.reward = { name, days };
+  saveData();
+  closeModal('modal-reward');
+  renderReward();
+}
+
+// ===== Data transfer =====
+function openTransfer() {
+  document.getElementById('transfer-code').value = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  openModal('modal-transfer');
+}
+function copyTransfer() {
+  const ta = document.getElementById('transfer-code');
+  ta.select();
+  document.execCommand('copy');
+  if (navigator.clipboard) navigator.clipboard.writeText(ta.value);
+  alert('コピーしました!別端末で貼り付けて「読み込む」を押してください');
+}
+function importTransfer() {
+  try {
+    const code = document.getElementById('transfer-code').value.trim();
+    const imported = JSON.parse(decodeURIComponent(escape(atob(code))));
+    if (!imported.stamps) throw new Error('invalid');
+    data = imported;
+    saveData();
+    closeModal('modal-transfer');
+    render();
+    alert('読み込みました!');
+  } catch(e) {
+    alert('コードが正しくありません。コピーし直してみてください');
+  }
+}
+
+function showCeleb() {
+  const c = document.getElementById('celeb');
+  c.classList.add('show');
+  // confetti
+  for (let i = 0; i < 24; i++) {
+    const p = document.createElement('div');
+    const emojis = ['🎊','✨','⭐','💖','🌸'];
+    p.textContent = emojis[i % emojis.length];
+    p.style.cssText = 'position:fixed;top:-30px;left:' + (Math.random()*100) + 'vw;font-size:' + (14+Math.random()*14) + 'px;z-index:199;pointer-events:none;transition:transform ' + (1.2+Math.random()*1.2) + 's ease-in,opacity 2s';
+    document.body.appendChild(p);
+    requestAnimationFrame(() => {
+      p.style.transform = 'translateY(' + (60+Math.random()*40) + 'vh) rotate(' + (Math.random()*360-180) + 'deg)';
+      p.style.opacity = '0';
+    });
+    setTimeout(() => p.remove(), 2600);
+  }
+  setTimeout(() => c.classList.remove('show'), 2500);
+}
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+render();
+</script>
+</body>
+</html>
