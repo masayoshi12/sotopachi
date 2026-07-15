@@ -85,6 +85,7 @@
   .cal-section { margin-bottom: 16px; }
   .cal-title { font-size: 13px; color: #94a3b8; margin-bottom: 10px; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cell * { pointer-events: none; }
   .cell {
     aspect-ratio: 1; border-radius: 8px; display: flex;
     flex-direction: column; gap: 1px;
@@ -209,6 +210,10 @@
       <div class="modal-title">🚨 行きたくなったら</div>
       <div class="sos-highlight" id="sos-loss"></div>
       <div class="sos-text" id="sos-text"></div>
+      <div id="sos-alt" style="background:#ecfdf5;border:2px solid #6ee7b7;border-radius:12px;padding:12px 14px;margin-bottom:16px;text-align:left">
+        <div style="font-size:12px;color:#059669;font-weight:700;margin-bottom:4px">🎯 代わりにこれをやろう</div>
+        <div id="sos-alt-text" style="font-size:14px;color:#065f46;font-weight:700"></div>
+      </div>
       <div style="margin-bottom:12px">
         <button onclick="showRandomSos()" style="width:100%;padding:11px;border-radius:12px;border:2px solid #c4b5fd;background:#f5f3ff;color:#7c3aed;font-size:14px;font-weight:700;cursor:pointer">🔄 別の言葉を見る</button>
       </div>
@@ -321,6 +326,32 @@
         <button class="modal-cancel" onclick="closeModal('modal-reward')">やめる</button>
         <button class="modal-ok" onclick="doReward()">設定する</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Day edit modal -->
+  <div class="modal-overlay" id="modal-day">
+    <div class="modal">
+      <div class="modal-title" id="day-title">この日を記録</div>
+      <div class="modal-sub">過去の日も正直に記録しよう</div>
+      <div id="day-choice" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+        <button onclick="dayStamp()" style="padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#34d399);color:#fff;font-size:15px;font-weight:700;cursor:pointer">✅ 行かなかった</button>
+        <button onclick="showWentInput()" style="padding:14px;border-radius:12px;border:2px solid #fcd34d;background:#fffbeb;color:#b45309;font-size:15px;font-weight:700;cursor:pointer">😔 行ってしまった</button>
+        <button onclick="dayClear()" id="day-clear-btn" style="padding:12px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;color:#94a3b8;font-size:13px;cursor:pointer">記録を消す</button>
+      </div>
+      <div id="day-went-input" style="display:none;margin-bottom:12px">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button type="button" id="d-result-lose" onclick="setDayResult('lose')" style="flex:1;padding:10px;border-radius:10px;border:2px solid #ef4444;background:#fef2f2;color:#b91c1c;font-weight:700;cursor:pointer">負けた</button>
+          <button type="button" id="d-result-win" onclick="setDayResult('win')" style="flex:1;padding:10px;border-radius:10px;border:2px solid #e2e8f0;background:#fff;color:#94a3b8;font-weight:700;cursor:pointer">勝った</button>
+        </div>
+        <input type="number" id="day-loss-input" placeholder="金額 例: 9000" inputmode="numeric" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:16px;margin-bottom:10px;text-align:center">
+        <input type="number" id="day-hours-input" placeholder="使った時間 例: 2" inputmode="numeric" step="0.5" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:16px;margin-bottom:12px;text-align:center">
+        <div style="display:flex;gap:8px">
+          <button class="modal-cancel" onclick="hideWentInput()">戻る</button>
+          <button class="modal-ok" onclick="dayWentSave()">記録する</button>
+        </div>
+      </div>
+      <button class="undo-link" onclick="closeModal('modal-day')">閉じる</button>
     </div>
   </div>
 
@@ -547,6 +578,9 @@ function render() {
       : isStamped
       ? '<span style="font-size:8px;line-height:1;opacity:0.8">' + label + '</span><span style="font-size:10px">✓</span>'
       : '<span style="font-size:8px;line-height:1">' + label + '</span>';
+    cell.style.cursor = 'pointer';
+    cell.dataset.ds = ds;
+    cell.dataset.label = label;
     grid.appendChild(cell);
   }
 
@@ -623,12 +657,58 @@ function doWent() {
   render();
 }
 
+const SOS_MESSAGES = [
+  '⚠️ <b>「今日だけ」は罠。</b>その一言で何度も戻った。<br>🕐 この前の2時間、何が残った?<br>💢 釘の悪い台、単発、駆け抜け。次も同じ。<br>💖 いま大切にしたい人がいる。<br>🌊 物足りなさは10分で消える波。深呼吸3回して歩こう。',
+  '🎰 唯一の必勝法は「打たないこと」。<br>📊 勝率55%でも、トータルは必ず負ける構造。<br>💸 1回ならすと約1,237円が消える。<br>🚶 今この瞬間、回れ右できたら勝ちだ。',
+  '🔥 ウズウズは脳の錯覚。あの音への条件反射。<br>⏳ あなたの意志が弱いんじゃない、仕組みのせい。<br>🌊 だから10分待てば波は引く。<br>💪 待てた自分を「我慢できた」で記録しよう。',
+  '💎 305回行って、38万円が消えた。<br>✈️ それだけあれば海外旅行に行けた。<br>🛑 次の1回が、また同じ後悔を生む。<br>💖 大切な人との未来に、その金を使おう。',
+  '😔 行った後の自分を思い出して。<br>💢 腸が煮えくり返る、爪を立てるあの感覚。<br>🌙 行かなければ、今夜は穏やかでいられる。<br>🕊️ 静かな夜を選ぼう。それが本当の勝ち。',
+  '🌱 やめるんじゃない。「今日は行かない」だけ。<br>📅 それを1日ずつ。今日さえ越えればいい。<br>⭐ 明日のことは明日考える。<br>🚶 まず10分、外の空気を吸ってこよう。',
+  '🧠 「勝てる気がする」は毎回ウソだった。<br>📉 6年間、その予感が当たった試しはない。<br>🎯 当たるのは「負ける」という事実だけ。<br>🛑 予感を信じるな、データを信じろ。',
+  '⏰ あの店に入れば、最低2時間は溶ける。<br>🌃 出てくる頃には夜。スッキリどころか疲労と後悔。<br>💪 その2時間、筋トレでもサウナでも本物のスッキリが手に入る。<br>🚿 帰ってシャワー浴びよう。',
+  '💍 婚活でいい人に出会えた。今がチャンス。<br>🎰 ここでパチンコに逃げたら、何のために頑張ってきた?<br>💖 その人との時間に、お金も気持ちも使おう。<br>🌟 未来を選べ。',
+  '🪞 鏡を見て聞いてみて。「本当に行きたい?」<br>😞 行きたいんじゃない。逃げたいだけかもしれない。<br>🌊 何から逃げてる? それは台では解決しない。<br>📝 ノートに今の気持ちを書き出してみよう。',
+  '🔁 連チャンの記憶が誘ってくる。でも思い出して。<br>💢 あの日の単発、駆け抜け、釘の悪さ。<br>⚖️ いい記憶だけ覚えてるのが依存の仕組み。<br>🧊 冷静になれ。次も同じ結末だ。',
+  '🏆 ここで我慢できたら、また連続記録が伸びる。<br>📈 通算日数はあなたを裏切らない唯一の数字。<br>🌱 台は裏切るが、積み上げた日数は裏切らない。<br>✅ 「我慢できた」を押しに行こう。',
+  '💤 今日は疲れてる? だからこそ危ない。<br>🎰 疲れた脳は手っ取り早い刺激を欲しがる。<br>🛌 でも本当に必要なのは休息で、刺激じゃない。<br>🍵 温かいもの飲んで、早く休もう。',
+  '🚪 一歩踏み出す前に、3回だけ深呼吸。<br>🌬️ 吸って、止めて、ゆっくり吐く。<br>🧘 それだけで前頭葉が戻ってくる。<br>🤔 落ち着いた頭でもう一度考えよう。本当に行く?',
+  '📨 返事待ちのそわそわ、台では消えない。<br>⏳ 宙ぶらりんの落ち着かなさを、刺激で上書きしたいだけ。<br>💬 それより散歩や音楽で気を紛らそう。<br>🌸 大事な人を待つ時間まで、パチンコに渡さない。',
+  '🎵 ポキュン、あの先バレ音が聞きたいだけかも。<br>🧠 でもそれは条件反射。あなたの本心じゃない。<br>💸 その音の代償が、毎回千円ちょっと。<br>🎧 音楽でも聴いて、回路を上書きしていこう。',
+];
+const ALT_ACTIONS = [
+  '🔧 作りかけのプラモを進める。無心になれる15分から',
+  '🎮 ゲームを起動する。区切りよく熱中しよう',
+  '🚶 10分だけ外を歩く。帰る頃には衝動は引いてる',
+  '🚿 シャワーかお風呂。頭の中もリセットされる',
+  '🎧 好きな音楽を1曲、大きめの音で聴く',
+  '🍵 温かいものを淹れて、ひと息つく',
+  '💪 その場で軽く筋トレ。スッキリは運動で作れる',
+  '📱 志織さんや友達に、一言メッセージを送ってみる',
+  '📝 今のモヤモヤをそのまま書き出す。台では消えない',
+];
+let lastSosIdx = -1, lastAltIdx = -1;
+function showRandomSos() {
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * SOS_MESSAGES.length);
+  } while (idx === lastSosIdx && SOS_MESSAGES.length > 1);
+  lastSosIdx = idx;
+  document.getElementById('sos-text').innerHTML = SOS_MESSAGES[idx];
+  let aidx;
+  do {
+    aidx = Math.floor(Math.random() * ALT_ACTIONS.length);
+  } while (aidx === lastAltIdx && ALT_ACTIONS.length > 1);
+  lastAltIdx = aidx;
+  document.getElementById('sos-alt-text').textContent = ALT_ACTIONS[aidx];
+}
 function openSOS() {
   const lossTotal = totalLoss();
   const lossHours = totalHours();
+  showRandomSos();
   const el = document.getElementById('sos-loss');
   if (lossTotal > 0) {
-    el.textContent = 'これまでの損失: ¥' + lossTotal.toLocaleString() + '。今行けば、またここに積み上がる。';
+    const opp = opportunityText(lossTotal, lossHours);
+    el.innerHTML = 'これまでの損失: ¥' + lossTotal.toLocaleString() + (lossHours > 0 ? ' と ' + Math.round(lossHours) + '時間' : '') + '。<br>' + (opp ? opp + '。' : '') + '<br>今行けば、またここに積み上がる。';
     el.style.display = 'block';
   } else {
     el.style.display = 'none';
@@ -747,6 +827,75 @@ function doReward() {
   renderReward();
 }
 
+// ===== Day edit (retroactive) =====
+let editingDay = null;
+function openDayEdit(ds, label) {
+  editingDay = ds;
+  document.getElementById('day-title').textContent = label + ' の記録';
+  const has = data.stamps.includes(ds) || data.went[ds] !== undefined;
+  document.getElementById('day-clear-btn').style.display = has ? 'block' : 'none';
+  // reset to choice view
+  document.getElementById('day-choice').style.display = 'flex';
+  document.getElementById('day-went-input').style.display = 'none';
+  openModal('modal-day');
+}
+function dayStamp() {
+  if (!editingDay) return;
+  delete data.went[editingDay];
+  if (!data.stamps.includes(editingDay)) data.stamps.push(editingDay);
+  saveData();
+  closeModal('modal-day');
+  currentMsg = '過去の分もきちんと記録。正直さが一番の武器💪';
+  render();
+  document.getElementById('msg-box').style.display = 'block';
+  document.getElementById('msg-text').textContent = currentMsg;
+  document.getElementById('milestone-text').style.display = 'none';
+}
+let dayResult = 'lose';
+function setDayResult(r) {
+  dayResult = r;
+  const lose = document.getElementById('d-result-lose');
+  const win = document.getElementById('d-result-win');
+  if (r === 'lose') {
+    lose.style.borderColor = '#ef4444'; lose.style.background = '#fef2f2'; lose.style.color = '#b91c1c';
+    win.style.borderColor = '#e2e8f0'; win.style.background = '#fff'; win.style.color = '#94a3b8';
+  } else {
+    win.style.borderColor = '#ef4444'; win.style.background = '#fef2f2'; win.style.color = '#b91c1c';
+    lose.style.borderColor = '#e2e8f0'; lose.style.background = '#fff'; lose.style.color = '#94a3b8';
+  }
+}
+function showWentInput() {
+  document.getElementById('day-choice').style.display = 'none';
+  document.getElementById('day-went-input').style.display = 'block';
+  setDayResult('lose');
+}
+function hideWentInput() {
+  document.getElementById('day-went-input').style.display = 'none';
+  document.getElementById('day-choice').style.display = 'flex';
+}
+function dayWentSave() {
+  if (!editingDay) return;
+  let amt = parseInt(document.getElementById('day-loss-input').value, 10);
+  const hrs = parseFloat(document.getElementById('day-hours-input').value) || 0;
+  if (isNaN(amt) || amt < 0) { alert('金額を入力してください'); return; }
+  if (dayResult === 'win') amt = -amt;
+  data.stamps = data.stamps.filter(d => d !== editingDay);
+  data.went[editingDay] = { amount: amt, hours: hrs };
+  saveData();
+  document.getElementById('day-loss-input').value = '';
+  document.getElementById('day-hours-input').value = '';
+  closeModal('modal-day');
+  render();
+}
+function dayClear() {
+  if (!editingDay) return;
+  data.stamps = data.stamps.filter(d => d !== editingDay);
+  delete data.went[editingDay];
+  saveData();
+  closeModal('modal-day');
+  render();
+}
+
 // ===== Data transfer =====
 function openTransfer() {
   document.getElementById('transfer-code').value = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
@@ -794,6 +943,19 @@ function showCeleb() {
 }
 function openModal(id) { document.getElementById(id).classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// タップ委譲(全画面モードでも確実に動くように)
+(function() {
+  const grid = document.getElementById('grid');
+  function handler(e) {
+    let el = e.target;
+    while (el && el !== grid && !el.dataset.ds) el = el.parentElement;
+    if (el && el.dataset && el.dataset.ds) {
+      openDayEdit(el.dataset.ds, el.dataset.label);
+    }
+  }
+  grid.addEventListener('click', handler);
+})();
 
 render();
 </script>
